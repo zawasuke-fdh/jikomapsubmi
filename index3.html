@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="西日本新聞「子どもの交通事故マップ」。福岡、佐賀、長崎県内で起きた子どもの交通事故発生地点を確認できます。">
+    <meta property="og:title" content="西日本新聞「福岡・佐賀・長崎3県子どもの交通事故マップ」">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://specials.nishinippon.co.jp/children_traffic_accident/img/ogp.png">
+    <title>交通事故マップ＋小学校区</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+    <script id="search-js" defer src="https://api.mapbox.com/search-js/v1.0.0-beta.22/web.js"></script>
+
+    <style>
+        body { margin: 0; font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; height: 100vh; height: 100svh; overflow: hidden; color: #333; }
+        
+        /* ポップアップ */
+        .mapboxgl-popup { max-width: 350px !important; z-index: 3000; }
+        .mapboxgl-popup-content { padding: 15px; border-radius: 8px; box-shadow: 0 4px 25px rgba(0,0,0,0.2); }
+        .popup-title { font-size: 1.1rem; margin-bottom: 10px; border-bottom: 3px solid #f15a24; padding-bottom: 5px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { border: 1px solid #e5e5e5; padding: 6px 8px; vertical-align: middle; }
+        td:first-child { background-color: #f9f9f9; font-weight: bold; color: #555; white-space: nowrap; width: 28%; }
+        .age-highlight { font-weight: bold; display: inline-block; padding: 2px 6px; border-radius: 4px; }
+        .sub-info { font-size: 0.85rem; color: #666; display: block; margin-top: 2px; }
+
+        /* レイアウト */
+        .container { height: 100%; display: flex; flex-direction: column; }
+        .header { flex-shrink: 0; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #fff; border-bottom: 1px solid #ddd; position: relative; z-index: 10; }
+        .logo-area { display: flex; align-items: center; }
+        .logo-area img { height: 32px; margin-right: 10px; }
+        .header h1 { font-size: 1.2rem; margin: 0; line-height: 1.3; }
+        .menu-btn { background: #f15a24; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .menu-btn:hover { opacity: 0.9; }
+        .main-content { flex-grow: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+
+        /* 凡例 */
+        .legend { position: absolute; bottom: 30px; left: 15px; background: rgba(255,255,255,0.95); padding: 12px 15px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.15); font-size: 0.9rem; z-index: 5; }
+        .legend h4 { margin: 0 0 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .legend-mark { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; border: 1px solid rgba(0,0,0,0.1); }
+        .legend-line { width: 25px; height: 3px; margin-right: 8px; background: #1d70b8; }
+
+        /* 情報パネル */
+        .info-panel { position: absolute; top: 0; right: -100%; width: 90%; max-width: 400px; height: 100%; background: #fff; z-index: 50; transition: right 0.3s ease; box-shadow: -5px 0 20px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+        .info-panel.open { right: 0; }
+        .info-header { display: flex; justify-content: flex-end; padding: 10px; }
+        .close-btn { background: none; border: none; font-size: 2rem; color: #999; cursor: pointer; }
+        .info-body { flex-grow: 1; overflow-y: auto; padding: 0 25px 40px; line-height: 1.8; }
+        .sns-share { display: flex; gap: 15px; margin-bottom: 25px; }
+        .sns-share img { width: 36px; height: 36px; opacity: 0.8; }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1rem; }
+            .logo-area img { height: 26px; }
+            .legend { bottom: auto; top: 60px; left: 10px; padding: 10px; font-size: 0.8rem; } /* 検索ボックスの下に配置 */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo-area">
+                <a href="https://www.nishinippon.co.jp/" target="_blank"><img src="img/logo.png" alt="西日本新聞"></a>
+                <h1>福岡・佐賀・長崎3県<br>子どもの交通事故マップ</h1>
+            </div>
+            <button class="menu-btn" onclick="toggleInfo()">使い方</button>
+        </header>
+
+        <div class="main-content">
+            <div id="map"></div>
+            <div class="legend">
+                <h4>凡例</h4>
+                <div class="legend-item"><div class="legend-line"></div>小学校区</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #f15a24;"></div>1～5歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #29abe2;"></div>6～12歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #fcd621;"></div>13～18歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #90ee90; opacity: 0.5;"></div>全年齢(2019-23)</div>
+            </div>
+        </div>
+
+        <div class="info-panel" id="infoPanel">
+            <div class="info-header"><button class="close-btn" onclick="toggleInfo()">×</button></div>
+            <div class="info-body">
+                <div class="sns-share">
+                    <a href="#"><img src="img/xicon.png" alt="X"></a>
+                    <a href="#"><img src="img/facebookicon.png" alt="Facebook"></a>
+                    <a href="#"><img src="img/LINEicon.png" alt="LINE"></a>
+                </div>
+                <h3>マップについて</h3>
+                <p>福岡、佐賀、長崎県内で発生した、子ども（1～18歳）が関係する交通事故（2018～2023年）を表示しています。</p>
+                <p>点をタップすると詳細と<strong>小学校区</strong>が表示されます。</p>
+                <hr>
+                <h4>色の意味</h4>
+                <ul style="padding-left: 20px;">
+                    <li><span style="color:#f15a24;">■</span> 1～5歳</li>
+                    <li><span style="color:#29abe2;">■</span> 6～12歳</li>
+                    <li><span style="color:#fcd621;">■</span> 13～18歳</li>
+                </ul>
+                <p>※薄い緑色は全年齢の事故データです。ズームアウト時は緑色の大きな円（クラスター）が手前に表示されます。</p>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 30px;">出典：各県警提供データ、警察庁オープンデータ<br>© Mapbox © OpenStreetMap</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleInfo() { document.getElementById('infoPanel').classList.toggle('open'); }
+        const isMobile = window.innerWidth <= 768;
+        mapboxgl.accessToken = 'pk.eyJ1Ijoibm5wZGF0YSIsImEiOiJjbHBnbTV6cXIwd2p2MmlwYWxnYWg1bnh3In0.vDZxaboMvN72PFLaztqqnA';
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/nnpdata/cm49p40iv018h01rd0cy76jcu',
+            center: [130.4017, 33.5902],
+            zoom: isMobile ? 9 : 10.5,
+            pitchWithRotate: false,
+            dragRotate: false
+        });
+        const popup = new mapboxgl.Popup({ closeButton: false, maxWidth: '350px', offset: 15 });
+
+        map.on('styleimagemissing', (e) => {
+            if (!map.hasImage(e.id)) map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
+        });
+
+        map.on('load', () => {
+            map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+            map.addControl(new mapboxgl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-right');
+
+            const layers = map.getStyle().layers;
+            let lowestChildLayerId = null;
+            for (const layer of layers) {
+                if (['1-5-2024', '6-12-2024', '13-18-2024'].includes(layer.id)) {
+                    if (!lowestChildLayerId) lowestChildLayerId = layer.id;
+                }
+            }
+            const anchorLayer = lowestChildLayerId || 'waterway-label';
+
+            // 1. 校区 (最下層)
+            map.addSource('districts', { type: 'geojson', data: './geojson/fukuoka.geojson' });
+            map.addLayer({ id: 'districts-fill', type: 'fill', source: 'districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, anchorLayer);
+            map.addLayer({ id: 'districts-line', type: 'line', source: 'districts', paint: { 'line-color': '#1d70b8', 'line-width': 2.5, 'line-opacity': 0.7 } }, anchorLayer);
+            map.addSource('other-districts', { type: 'geojson', data: './geojson/fukpref.geojson' });
+            map.addLayer({ id: 'other-districts-fill', type: 'fill', source: 'other-districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, anchorLayer);
+            map.addLayer({ id: 'other-districts-line', type: 'line', source: 'other-districts', paint: { 'line-color': '#1d70b8', 'line-width': 2, 'line-opacity': 0.6 } }, anchorLayer);
+
+            // 2. 緑データ
+            const greenFiles = [{ id: 'data', url: './geojson/data.geojson' }];
+            greenFiles.forEach(file => {
+                fetch(file.url).then(res => res.json()).then(geojson => {
+                    map.addSource(file.id, { type: 'geojson', data: geojson, cluster: true, clusterRadius: 50, clusterMinPoints: 15 });
+                    // 緑の個別点 → anchorLayer(赤青黄)の下
+                    map.addLayer({ id: `${file.id}-points`, type: 'circle', source: file.id, filter: ['!', ['has', 'point_count']], paint: { 'circle-color': '#90ee90', 'circle-radius': 4, 'circle-opacity': 0.3, 'circle-stroke-width': 0 } }, anchorLayer);
+                    // 緑のクラスター → 最前面
+                    map.addLayer({ id: `${file.id}-clusters`, type: 'circle', source: file.id, filter: ['has', 'point_count'], paint: { 'circle-color': '#041533', 'circle-opacity': 0.6, 'circle-radius': ['step', ['get', 'point_count'], 15, 100, 25, 500, 35] } });
+                    map.addLayer({ id: `${file.id}-cluster-count`, type: 'symbol', source: file.id, filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 }, paint: { 'text-color': '#fff' } });
+                }).catch(e => console.error(e));
+            });
+        });
+
+        function getAgeHighlight(ageStr) {
+            if (!ageStr) return null;
+            const match = ageStr.toString().match(/(\d+)/);
+            if (!match) return null;
+            const age = parseInt(match[0], 10);
+            if (age >= 0 && age <= 5) return { bg: '#ffe0e0', color: '#c0392b' };
+            if (age >= 6 && age <= 12) return { bg: '#e0f3ff', color: '#2980b9' };
+            if (age >= 13 && age <= 18) return { bg: '#fffbd0', color: '#f39c12' };
+            return null;
+        }
+
+        function showPopup(e) {
+            const p = e.features[0].properties;
+            const fuk = map.queryRenderedFeatures(e.point, { layers: ['districts-fill'] });
+            const oth = map.queryRenderedFeatures(e.point, { layers: ['other-districts-fill'] });
+            let district = (fuk.length && fuk[0].properties['校区名']) ? `${fuk[0].properties['校区名']}校区 (福岡市)` :
+                           (oth.length && oth[0].properties['A27_004']) ? `${oth[0].properties['A27_004']} (${oth[0].properties['A27_002'] || '-'})` : '不明';
+
+            const formatParty = (type, age, injury) => {
+                const hl = getAgeHighlight(age);
+                const ageHtml = hl ? `<span class="age-highlight" style="background:${hl.bg}; color:${hl.color};">${age}</span>` : (age || '-');
+                return `<div>${type || '-'} (${ageHtml})</div><span class="sub-info">${injury || '-'}</span>`;
+            };
+            const html = `<div class="popup-title">${p["発生年月日時"] || '日時不明'}</div>
+                <table><tr><td>場所</td><td><strong>${district}</strong></td></tr>
+                <tr><td>状況</td><td>${p["天候"] || '-'} / ${p["昼夜"] || '-'}</td></tr>
+                <tr><td>当事者A</td><td>${formatParty(p["当事者種別（当事者A）"], p["年齢（当事者A）"], p["人身損傷程度（当事者A）"])}</td></tr>
+                <tr><td>当事者B</td><td>${formatParty(p["当事者種別（当事者B）"], p["年齢（当事者B）"], p["人身損傷程度（当事者B）"])}</td></tr></table>`;
+            popup.setLngLat(e.features[0].geometry.coordinates.slice()).setHTML(html).addTo(map);
+        }
+
+        map.on('idle', () => {
+            ['13-18-2024', '6-12-2024', '1-5-2024'].forEach(id => {
+                if (map.getLayer(id)) {
+                    map.on('click', id, showPopup);
+                    map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
+                    map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
+                }
+            });
+        });
+
+        // --- 検索ボックスの重複防止と初期化 ---
+        let searchInitialized = false; // 初期化フラグ
+        function initSearch() {
+            if (searchInitialized) return; // 既に初期化済みなら何もしない
+            if (window.MapboxSearchBox && map) {
+                const search = new MapboxSearchBox();
+                search.accessToken = mapboxgl.accessToken;
+                search.options = { types: 'address,poi', language: 'ja', country: 'JP', proximity: [130.4017, 33.5902] };
+                search.marker = true;
+                search.mapboxgl = mapboxgl;
+                map.addControl(search, 'top-left');
+                searchInitialized = true;
+
+                // プレースホルダーの変更を試みる（DOMが生成されるまで少し待つ必要がある場合があります）
+                setTimeout(() => {
+                    const input = document.querySelector('.mapboxgl-ctrl-search-box input');
+                    if (input) input.placeholder = '住所や場所を検索'; // ここで文言を変更
+                }, 1000);
+            }
+        }
+        if (window.MapboxSearchBox) { initSearch(); }
+        else { document.getElementById('search-js').addEventListener('load', initSearch); }
+        map.once('load', initSearch); // onceに変更して重複実行を抑制
+
+    </script>
+</body>
+</html>
