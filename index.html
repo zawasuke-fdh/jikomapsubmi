@@ -56,7 +56,7 @@
         @media (max-width: 768px) {
             .header h1 { font-size: 1rem; }
             .logo-area img { height: 26px; }
-            .legend { bottom: auto; top: 60px; left: 10px; padding: 10px; font-size: 0.8rem; } /* 検索ボックスの下に配置 */
+            .legend { bottom: auto; top: 60px; left: 10px; padding: 10px; font-size: 0.8rem; }
         }
     </style>
 </head>
@@ -115,8 +115,8 @@
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/nnpdata/cm49p40iv018h01rd0cy76jcu',
-            center: [130.4017, 33.5902],
-            zoom: isMobile ? 9 : 10.5,
+            center: [130.2, 33.0],
+            zoom: isMobile ? 7.5 : 8.5,
             pitchWithRotate: false,
             dragRotate: false
         });
@@ -139,25 +139,82 @@
             }
             const anchorLayer = lowestChildLayerId || 'waterway-label';
 
-            // 1. 校区 (最下層)
-            map.addSource('districts', { type: 'geojson', data: './geojson/fukuoka.geojson' });
-            map.addLayer({ id: 'districts-fill', type: 'fill', source: 'districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, anchorLayer);
-            map.addLayer({ id: 'districts-line', type: 'line', source: 'districts', paint: { 'line-color': '#1d70b8', 'line-width': 2.5, 'line-opacity': 0.7 } }, anchorLayer);
-            map.addSource('other-districts', { type: 'geojson', data: './geojson/fukpref.geojson' });
-            map.addLayer({ id: 'other-districts-fill', type: 'fill', source: 'other-districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, anchorLayer);
-            map.addLayer({ id: 'other-districts-line', type: 'line', source: 'other-districts', paint: { 'line-color': '#1d70b8', 'line-width': 2, 'line-opacity': 0.6 } }, anchorLayer);
+            // 1. 校区データ（3県4ファイル）
+            const districtSources = [
+                { id: 'fukuoka-city', url: './geojson/fukuoka.geojson', lineWidth: 2.5, opacity: 0.7 },
+                { id: 'fukuoka-pref', url: './geojson/fukpref.geojson', lineWidth: 2, opacity: 0.6 },
+                { id: 'saga', url: './geojson/sagamap.geojson', lineWidth: 2, opacity: 0.6 },
+                { id: 'nagasaki', url: './geojson/nagamap.geojson', lineWidth: 2, opacity: 0.6 }
+            ];
 
-            // 2. 緑データ
+            districtSources.forEach(district => {
+                map.addSource(district.id, { 
+                    type: 'geojson', 
+                    data: district.url 
+                });
+                
+                map.addLayer({
+                    id: `${district.id}-fill`,
+                    type: 'fill',
+                    source: district.id,
+                    paint: { 'fill-color': '#000', 'fill-opacity': 0 }
+                }, anchorLayer);
+                
+                map.addLayer({
+                    id: `${district.id}-line`,
+                    type: 'line',
+                    source: district.id,
+                    paint: {
+                        'line-color': '#1d70b8',
+                        'line-width': district.lineWidth,
+                        'line-opacity': district.opacity
+                    }
+                }, anchorLayer);
+            });
+
+            // 2. 緑データ（全年齢事故）
             const greenFiles = [{ id: 'data', url: './geojson/data.geojson' }];
             greenFiles.forEach(file => {
                 fetch(file.url).then(res => res.json()).then(geojson => {
-                    map.addSource(file.id, { type: 'geojson', data: geojson, cluster: true, clusterRadius: 50, clusterMinPoints: 15 });
-                    // 緑の個別点 → anchorLayer(赤青黄)の下
-                    map.addLayer({ id: `${file.id}-points`, type: 'circle', source: file.id, filter: ['!', ['has', 'point_count']], paint: { 'circle-color': '#90ee90', 'circle-radius': 4, 'circle-opacity': 0.3, 'circle-stroke-width': 0 } }, anchorLayer);
-                    // 緑のクラスター → 最前面
-                    map.addLayer({ id: `${file.id}-clusters`, type: 'circle', source: file.id, filter: ['has', 'point_count'], paint: { 'circle-color': '#041533', 'circle-opacity': 0.6, 'circle-radius': ['step', ['get', 'point_count'], 15, 100, 25, 500, 35] } });
-                    map.addLayer({ id: `${file.id}-cluster-count`, type: 'symbol', source: file.id, filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 }, paint: { 'text-color': '#fff' } });
-                }).catch(e => console.error(e));
+                    map.addSource(file.id, {
+                        type: 'geojson',
+                        data: geojson,
+                        cluster: true,
+                        clusterRadius: 50,
+                        clusterMinPoints: 15
+                    });
+                    map.addLayer({
+                        id: `${file.id}-points`,
+                        type: 'circle',
+                        source: file.id,
+                        filter: ['!', ['has', 'point_count']],
+                        paint: {
+                            'circle-color': '#90ee90',
+                            'circle-radius': 4,
+                            'circle-opacity': 0.3,
+                            'circle-stroke-width': 0
+                        }
+                    }, anchorLayer);
+                    map.addLayer({
+                        id: `${file.id}-clusters`,
+                        type: 'circle',
+                        source: file.id,
+                        filter: ['has', 'point_count'],
+                        paint: {
+                            'circle-color': '#041533',
+                            'circle-opacity': 0.6,
+                            'circle-radius': ['step', ['get', 'point_count'], 15, 100, 25, 500, 35]
+                        }
+                    });
+                    map.addLayer({
+                        id: `${file.id}-cluster-count`,
+                        type: 'symbol',
+                        source: file.id,
+                        filter: ['has', 'point_count'],
+                        layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 },
+                        paint: { 'text-color': '#fff' }
+                    });
+                }).catch(e => console.error('緑データ読み込みエラー:', e));
             });
         });
 
@@ -174,16 +231,53 @@
 
         function showPopup(e) {
             const p = e.features[0].properties;
-            const fuk = map.queryRenderedFeatures(e.point, { layers: ['districts-fill'] });
-            const oth = map.queryRenderedFeatures(e.point, { layers: ['other-districts-fill'] });
-            let district = (fuk.length && fuk[0].properties['校区名']) ? `${fuk[0].properties['校区名']}校区 (福岡市)` :
-                           (oth.length && oth[0].properties['A27_004']) ? `${oth[0].properties['A27_004']} (${oth[0].properties['A27_002'] || '-'})` : '不明';
+            
+            // 3県すべての校区レイヤーをクエリ
+            const queryLayers = [
+                'fukuoka-city-fill',
+                'fukuoka-pref-fill',
+                'saga-fill',
+                'nagasaki-fill'
+            ];
+            
+            const features = map.queryRenderedFeatures(e.point, { layers: queryLayers });
+            let district = '不明';
+            
+            if (features.length > 0) {
+                const props = features[0].properties;
+                const layerId = features[0].layer.id;
+                
+                // 福岡市の独自形式
+                if (props['校区名']) {
+                    district = `${props['校区名']}校区 (福岡市)`;
+                }
+                // 国土数値情報形式（福岡県・佐賀県・長崎県）
+                else if (props['A27_004']) {
+                    const schoolName = props['A27_004'];
+                    const setter = props['A27_002'] || '';
+                    
+                    // レイヤーIDから県を判定
+                    let prefecture = '';
+                    if (layerId.includes('fukuoka')) prefecture = '福岡県';
+                    else if (layerId.includes('saga')) prefecture = '佐賀県';
+                    else if (layerId.includes('nagasaki')) prefecture = '長崎県';
+                    
+                    // 「○○市立」などから市町村名を抽出
+                    const cityMatch = setter.match(/^(.+?)(市立|町立|村立)/);
+                    const cityName = cityMatch ? cityMatch[1] : setter;
+                    
+                    district = cityName ? 
+                        `${schoolName} (${cityName}・${prefecture})` : 
+                        `${schoolName} (${prefecture})`;
+                }
+            }
 
             const formatParty = (type, age, injury) => {
                 const hl = getAgeHighlight(age);
                 const ageHtml = hl ? `<span class="age-highlight" style="background:${hl.bg}; color:${hl.color};">${age}</span>` : (age || '-');
                 return `<div>${type || '-'} (${ageHtml})</div><span class="sub-info">${injury || '-'}</span>`;
             };
+            
             const html = `<div class="popup-title">${p["発生年月日時"] || '日時不明'}</div>
                 <table><tr><td>場所</td><td><strong>${district}</strong></td></tr>
                 <tr><td>状況</td><td>${p["天候"] || '-'} / ${p["昼夜"] || '-'}</td></tr>
@@ -202,29 +296,28 @@
             });
         });
 
-        // --- 検索ボックスの重複防止と初期化 ---
-        let searchInitialized = false; // 初期化フラグ
+        // 検索ボックスの重複防止と初期化
+        let searchInitialized = false;
         function initSearch() {
-            if (searchInitialized) return; // 既に初期化済みなら何もしない
+            if (searchInitialized) return;
             if (window.MapboxSearchBox && map) {
                 const search = new MapboxSearchBox();
                 search.accessToken = mapboxgl.accessToken;
-                search.options = { types: 'address,poi', language: 'ja', country: 'JP', proximity: [130.4017, 33.5902] };
+                search.options = { types: 'address,poi', language: 'ja', country: 'JP', proximity: [130.2, 33.0] };
                 search.marker = true;
                 search.mapboxgl = mapboxgl;
                 map.addControl(search, 'top-left');
                 searchInitialized = true;
 
-                // プレースホルダーの変更を試みる（DOMが生成されるまで少し待つ必要がある場合があります）
                 setTimeout(() => {
                     const input = document.querySelector('.mapboxgl-ctrl-search-box input');
-                    if (input) input.placeholder = '住所や場所を検索'; // ここで文言を変更
+                    if (input) input.placeholder = '住所や場所を検索';
                 }, 1000);
             }
         }
         if (window.MapboxSearchBox) { initSearch(); }
         else { document.getElementById('search-js').addEventListener('load', initSearch); }
-        map.once('load', initSearch); // onceに変更して重複実行を抑制
+        map.once('load', initSearch);
 
     </script>
 </body>

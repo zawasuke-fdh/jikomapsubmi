@@ -4,72 +4,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="西日本新聞「子どもの交通事故マップ」。福岡、佐賀、長崎県内で起きた子どもの交通事故発生地点を確認できます。">
+    <meta property="og:title" content="西日本新聞「福岡・佐賀・長崎3県子どもの交通事故マップ」">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://specials.nishinippon.co.jp/children_traffic_accident/img/ogp.png">
     <title>交通事故マップ＋小学校区</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
-    
+    <script id="search-js" defer src="https://api.mapbox.com/search-js/v1.0.0-beta.22/web.js"></script>
+
     <style>
-        body { margin: 0; font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; height: 100vh; overflow: hidden; color: #333; }
+        body { margin: 0; font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; height: 100vh; height: 100svh; overflow: hidden; color: #333; }
         
         /* ポップアップ */
         .mapboxgl-popup { max-width: 350px !important; z-index: 3000; }
         .mapboxgl-popup-content { padding: 15px; border-radius: 8px; box-shadow: 0 4px 25px rgba(0,0,0,0.2); }
-        .popup-title { font-size: 1.1rem; margin-bottom: 10px; border-bottom: 3px solid #f15a24; font-weight: bold; }
+        .popup-title { font-size: 1.1rem; margin-bottom: 10px; border-bottom: 3px solid #f15a24; padding-bottom: 5px; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th, td { border: 1px solid #e5e5e5; padding: 6px 8px; vertical-align: middle; }
-        td:first-child { background: #f9f9f9; font-weight: bold; color: #555; white-space: nowrap; width: 28%; }
-        /* 年齢強調用 */
-        .age-highlight { font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; line-height: 1.2; margin-right: 4px; }
+        td:first-child { background-color: #f9f9f9; font-weight: bold; color: #555; white-space: nowrap; width: 28%; }
+        .age-highlight { font-weight: bold; display: inline-block; padding: 2px 6px; border-radius: 4px; }
+        .sub-info { font-size: 0.85rem; color: #666; display: block; margin-top: 2px; }
 
         /* レイアウト */
         .container { height: 100%; display: flex; flex-direction: column; }
-        .header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #fff; border-bottom: 1px solid #ddd; z-index: 10; position: relative; }
+        .header { flex-shrink: 0; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #fff; border-bottom: 1px solid #ddd; position: relative; z-index: 10; }
         .logo-area { display: flex; align-items: center; }
         .logo-area img { height: 32px; margin-right: 10px; }
-        .header h1 { font-size: 1.2rem; margin: 0; }
+        .header h1 { font-size: 1.2rem; margin: 0; line-height: 1.3; }
         .menu-btn { background: #f15a24; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-
-        /* プルダウンメニュー */
-        .city-select-container {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            z-index: 100;
-        }
-        @media (max-width: 768px) {
-            .city-select-container {
-                top: 70px; left: 10px; transform: none;
-            }
-        }
-        #city-select {
-            font-size: 15px; padding: 8px 35px 8px 12px;
-            border: 2px solid #1d70b8; border-radius: 4px;
-            background: #fff url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%231d70b8' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 5px center;
-            appearance: none; -webkit-appearance: none; cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2); color: #1d70b8; font-weight: bold;
-        }
-        #city-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(29,112,184,0.3); }
-
-        /* メインコンテンツ */
+        .menu-btn:hover { opacity: 0.9; }
         .main-content { flex-grow: 1; position: relative; }
         #map { width: 100%; height: 100%; }
 
         /* 凡例 */
-        .legend { position: absolute; bottom: 30px; left: 15px; background: rgba(255,255,255,0.95); padding: 12px 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 0.9rem; z-index: 5; }
+        .legend { position: absolute; bottom: 30px; left: 15px; background: rgba(255,255,255,0.95); padding: 12px 15px; border-radius: 8px; box-shadow: 0 2px 15px rgba(0,0,0,0.15); font-size: 0.9rem; z-index: 5; }
+        .legend h4 { margin: 0 0 10px; border-bottom: 2px solid #eee; padding-bottom: 5px; }
         .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
         .legend-mark { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; border: 1px solid rgba(0,0,0,0.1); }
+        .legend-line { width: 25px; height: 3px; margin-right: 8px; background: #1d70b8; }
 
         /* 情報パネル */
-        .info-panel { position: absolute; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100%; background: #fff; z-index: 50; transition: right 0.3s ease; display: flex; flex-direction: column; box-shadow: -5px 0 20px rgba(0,0,0,0.2); }
+        .info-panel { position: absolute; top: 0; right: -100%; width: 90%; max-width: 400px; height: 100%; background: #fff; z-index: 50; transition: right 0.3s ease; box-shadow: -5px 0 20px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
         .info-panel.open { right: 0; }
         .info-header { display: flex; justify-content: flex-end; padding: 10px; }
         .close-btn { background: none; border: none; font-size: 2rem; color: #999; cursor: pointer; }
-        .info-body { padding: 0 25px 40px; overflow-y: auto; line-height: 1.8; }
+        .info-body { flex-grow: 1; overflow-y: auto; padding: 0 25px 40px; line-height: 1.8; }
         .sns-share { display: flex; gap: 15px; margin-bottom: 25px; }
-        .sns-share img { width: 36px; opacity: 0.8; }
+        .sns-share img { width: 36px; height: 36px; opacity: 0.8; }
 
         @media (max-width: 768px) {
             .header h1 { font-size: 1rem; }
             .logo-area img { height: 26px; }
-            .legend { bottom: auto; top: 120px; left: 10px; padding: 8px; font-size: 0.8rem; }
+            .legend { bottom: auto; top: 60px; left: 10px; padding: 10px; font-size: 0.8rem; }
         }
     </style>
 </head>
@@ -78,24 +65,21 @@
     <div class="container">
         <header class="header">
             <div class="logo-area">
-                <img src="img/logo.png" alt="ロゴ">
-                <h1>子どもの交通事故マップ</h1>
+                <a href="https://www.nishinippon.co.jp/" target="_blank"><img src="img/logo.png" alt="西日本新聞"></a>
+                <h1>福岡・佐賀・長崎3県<br>子どもの交通事故マップ</h1>
             </div>
-            <div class="city-select-container" id="pc-select-container">
-                 </div>
             <button class="menu-btn" onclick="toggleInfo()">使い方</button>
         </header>
-        
+
         <div class="main-content">
             <div id="map"></div>
-            
             <div class="legend">
-                <strong>凡例</strong>
-                <div class="legend-item"><span style="width:25px;height:3px;background:#1d70b8;margin-right:8px;"></span>小学校区</div>
-                <div class="legend-item"><div class="legend-mark" style="background:#f15a24;"></div>1～5歳</div>
-                <div class="legend-item"><div class="legend-mark" style="background:#29abe2;"></div>6～12歳</div>
-                <div class="legend-item"><div class="legend-mark" style="background:#fcd621;"></div>13～18歳</div>
-                <div class="legend-item"><div class="legend-mark" style="background:#90ee90;opacity:0.5;"></div>全年齢(2019-23)</div>
+                <h4>凡例</h4>
+                <div class="legend-item"><div class="legend-line"></div>小学校区</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #f15a24;"></div>1～5歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #29abe2;"></div>6～12歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #fcd621;"></div>13～18歳</div>
+                <div class="legend-item"><div class="legend-mark" style="background: #90ee90; opacity: 0.5;"></div>全年齢(2019-23)</div>
             </div>
         </div>
 
@@ -109,262 +93,232 @@
                 </div>
                 <h3>マップについて</h3>
                 <p>福岡、佐賀、長崎県内で発生した、子ども（1～18歳）が関係する交通事故（2018～2023年）を表示しています。</p>
-                <p><strong>プルダウンメニュー</strong>から自治体（区含む）を選ぶと、その場所へ移動します。</p>
+                <p>点をタップすると詳細と<strong>小学校区</strong>が表示されます。</p>
                 <hr>
                 <h4>色の意味</h4>
-                <ul style="padding-left:20px;">
-                    <li><span style="color:#f15a24;">■</span> 1～5歳（赤）</li>
-                    <li><span style="color:#29abe2;">■</span> 6～12歳（青）</li>
-                    <li><span style="color:#fcd621;">■</span> 13～18歳（黄）</li>
+                <ul style="padding-left: 20px;">
+                    <li><span style="color:#f15a24;">■</span> 1～5歳</li>
+                    <li><span style="color:#29abe2;">■</span> 6～12歳</li>
+                    <li><span style="color:#fcd621;">■</span> 13～18歳</li>
                 </ul>
+                <p>※薄い緑色は全年齢の事故データです。ズームアウト時は緑色の大きな円（クラスター）が手前に表示されます。</p>
+                <p style="font-size: 0.8rem; color: #666; margin-top: 30px;">出典：各県警提供データ、警察庁オープンデータ<br>© Mapbox © OpenStreetMap</p>
             </div>
         </div>
     </div>
 
     <script>
         function toggleInfo() { document.getElementById('infoPanel').classList.toggle('open'); }
-
         const isMobile = window.innerWidth <= 768;
         mapboxgl.accessToken = 'pk.eyJ1Ijoibm5wZGF0YSIsImEiOiJjbHBnbTV6cXIwd2p2MmlwYWxnYWg1bnh3In0.vDZxaboMvN72PFLaztqqnA';
 
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/nnpdata/cm49p40iv018h01rd0cy76jcu',
-            center: [130.4017, 33.5902],
-            zoom: isMobile ? 9 : 10.5,
+            center: [130.2, 33.0],
+            zoom: isMobile ? 7.5 : 8.5,
             pitchWithRotate: false,
             dragRotate: false
         });
         const popup = new mapboxgl.Popup({ closeButton: false, maxWidth: '350px', offset: 15 });
 
-        // 画像不足エラー回避
         map.on('styleimagemissing', (e) => {
             if (!map.hasImage(e.id)) map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
         });
 
-        // プルダウンメニュー生成
-        function createCitySelect() {
-            const selectHTML = `
-            <div class="city-select-container">
-                <select id="city-select" onchange="flyToCity(this.value)">
-                    <option value="">自治体を選択して移動</option>
-                    <optgroup label="福岡市">
-                        <option value="130.4181,33.6176">東区</option>
-                        <option value="130.4106,33.5897">博多区</option>
-                        <option value="130.3963,33.5896">中央区</option>
-                        <option value="130.4262,33.5622">南区</option>
-                        <option value="130.3237,33.5828">西区</option>
-                        <option value="130.3749,33.5667">城南区</option>
-                        <option value="130.3497,33.5811">早良区</option>
-                    </optgroup>
-                    <optgroup label="北九州市">
-                        <option value="130.9581,33.9420">門司区</option>
-                        <option value="130.8059,33.9066">若松区</option>
-                        <option value="130.8389,33.8956">戸畑区</option>
-                        <option value="130.8752,33.8838">小倉北区</option>
-                        <option value="130.8840,33.8263">小倉南区</option>
-                        <option value="130.8054,33.8629">八幡東区</option>
-                        <option value="130.7527,33.8554">八幡西区</option>
-                    </optgroup>
-                    <optgroup label="あ行">
-                        <option value="130.8029,33.6068">赤村</option>
-                        <option value="130.6674,33.4111">朝倉市</option>
-                        <option value="130.6607,33.8971">芦屋町</option>
-                        <option value="130.6967,33.6446">飯塚市</option>
-                        <option value="130.1958,33.5596">糸島市</option>
-                        <option value="130.6385,33.7625">糸田町</option>
-                        <option value="130.5121,33.5711">宇美町</option>
-                        <option value="130.3665,33.2086">大川市</option>
-                        <option value="130.4766,33.5367">大野城市</option>
-                        <option value="130.4447,33.0294">大牟田市</option>
-                        <option value="130.6081,33.8541">岡垣町</option>
-                        <option value="130.5567,33.3997">小郡市</option>
-                        <option value="130.6666,33.8585">遠賀町</option>
-                        <option value="130.3186,33.2380">大木町</option>
-                        <option value="130.8392,33.7188">大任町</option>
-                    </optgroup>
-                    <optgroup label="か行">
-                        <option value="130.4747,33.5327">春日市</option>
-                        <option value="130.4806,33.6035">粕屋町</option>
-                        <option value="130.7187,33.5772">嘉麻市</option>
-                        <option value="130.8153,33.6044">川崎町</option>
-                        <option value="130.8387,33.6586">香春町</option>
-                        <option value="130.9831,33.7843">苅田町</option>
-                        <option value="130.6688,33.7753">鞍手町</option>
-                        <option value="130.5082,33.3192">久留米市</option>
-                        <option value="130.6695,33.5863">桂川町</option>
-                        <option value="131.1565,33.6025">上毛町</option>
-                        <option value="130.4696,33.7335">古賀市</option>
-                        <option value="130.7415,33.7318">小竹町</option>
-                    </optgroup>
-                    <optgroup label="さ行">
-                        <option value="130.5237,33.6127">篠栗町</option>
-                        <option value="130.4896,33.5887">志免町</option>
-                        <option value="130.4338,33.7132">新宮町</option>
-                        <option value="130.5164,33.5921">須恵町</option>
-                        <option value="130.8525,33.5855">添田町</option>
-                    </optgroup>
-                    <optgroup label="た行">
-                        <option value="130.8074,33.6381">田川市</option>
-                        <option value="130.5185,33.5142">太宰府市</option>
-                        <option value="130.5948,33.3647">大刀洗町</option>
-                        <option value="130.4996,33.2046">筑後市</option>
-                        <option value="130.5254,33.4945">筑紫野市</option>
-                        <option value="131.0456,33.6470">築上町</option>
-                        <option value="130.6086,33.4355">筑前町</option>
-                        <option value="130.8487,33.4707">東峰村</option>
-                    </optgroup>
-                    <optgroup label="な行">
-                        <option value="130.4256,33.5009">那珂川市</option>
-                        <option value="130.7091,33.8185">中間市</option>
-                        <option value="130.7259,33.7461">直方市</option>
-                    </optgroup>
-                    <optgroup label="は行">
-                        <option value="130.4525,33.6522">久山町</option>
-                        <option value="130.2405,33.3305">広川町</option>
-                        <option value="130.7882,33.6778">福智町</option>
-                        <option value="130.4913,33.7695">福津市</option>
-                        <option value="131.1330,33.6086">豊前市</option>
-                    </optgroup>
-                    <optgroup label="ま行">
-                        <option value="130.7017,33.8553">水巻町</option>
-                        <option value="130.9386,33.6977">みやこ町</option>
-                        <option value="130.4847,33.1528">みやま市</option>
-                        <option value="130.6022,33.7311">宮若市</option>
-                        <option value="130.5444,33.8047">宗像市</option>
-                    </optgroup>
-                    <optgroup label="や行">
-                        <option value="130.5521,33.2142">八女市</option>
-                        <option value="130.4048,33.1660">柳川市</option>
-                        <option value="131.1600,33.6026">吉富町</option>
-                        <option value="130.9709,33.7299">行橋市</option>
-                    </optgroup>
-                </select>
-            </div>`;
-            
-            if (document.getElementById('pc-select-container') && window.innerWidth > 768) {
-                 document.getElementById('pc-select-container').innerHTML = selectHTML;
-            } else {
-                 document.querySelector('.main-content').insertAdjacentHTML('afterbegin', selectHTML);
-            }
-        }
-        createCitySelect();
-
-        function flyToCity(coordsStr) {
-            if (!coordsStr) return;
-            const coords = coordsStr.split(',').map(Number);
-            map.flyTo({ center: coords, zoom: 13.5, essential: true });
-        }
-
-        // =========================================
-        // マップロード後の処理
-        // =========================================
         map.on('load', () => {
             map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
             map.addControl(new mapboxgl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-right');
 
             const layers = map.getStyle().layers;
-            let accidentBaseId = layers.find(l => ['1-5-2024', '6-12-2024', '13-18-2024'].includes(l.id))?.id;
-            const baseLayerId = accidentBaseId || 'waterway-label';
+            let lowestChildLayerId = null;
+            for (const layer of layers) {
+                if (['1-5-2024', '6-12-2024', '13-18-2024'].includes(layer.id)) {
+                    if (!lowestChildLayerId) lowestChildLayerId = layer.id;
+                }
+            }
+            const anchorLayer = lowestChildLayerId || 'waterway-label';
 
-            // 1. 校区データを最下層へ
-            map.addSource('districts', { type: 'geojson', data: './geojson/fukuoka.geojson' });
-            map.addLayer({ id: 'districts-fill', type: 'fill', source: 'districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, baseLayerId);
-            map.addLayer({ id: 'districts-line', type: 'line', source: 'districts', paint: { 'line-color': '#1d70b8', 'line-width': 2.5, 'line-opacity': 0.7 } }, baseLayerId);
-            map.addSource('other-districts', { type: 'geojson', data: './geojson/fukpref.geojson' });
-            map.addLayer({ id: 'other-districts-fill', type: 'fill', source: 'other-districts', paint: { 'fill-color': '#000', 'fill-opacity': 0 } }, baseLayerId);
-            map.addLayer({ id: 'other-districts-line', type: 'line', source: 'other-districts', paint: { 'line-color': '#1d70b8', 'line-width': 2, 'line-opacity': 0.6 } }, baseLayerId);
+            // 1. 校区データ（3県4ファイル）
+            const districtSources = [
+                { id: 'fukuoka-city', url: './geojson/fukuoka.geojson', lineWidth: 2.5, opacity: 0.7 },
+                { id: 'fukuoka-pref', url: './geojson/fukpref.geojson', lineWidth: 2, opacity: 0.6 },
+                { id: 'saga', url: './geojson/sagamap.geojson', lineWidth: 2, opacity: 0.6 },
+                { id: 'nagasaki', url: './geojson/nagamap.geojson', lineWidth: 2, opacity: 0.6 }
+            ];
 
-            // 2. 緑色データ（全年齢）の読み込み
+            districtSources.forEach(district => {
+                map.addSource(district.id, { 
+                    type: 'geojson', 
+                    data: district.url 
+                });
+                
+                map.addLayer({
+                    id: `${district.id}-fill`,
+                    type: 'fill',
+                    source: district.id,
+                    paint: { 'fill-color': '#000', 'fill-opacity': 0 }
+                }, anchorLayer);
+                
+                map.addLayer({
+                    id: `${district.id}-line`,
+                    type: 'line',
+                    source: district.id,
+                    paint: {
+                        'line-color': '#1d70b8',
+                        'line-width': district.lineWidth,
+                        'line-opacity': district.opacity
+                    }
+                }, anchorLayer);
+            });
+
+            // 2. 緑データ（全年齢事故）
             const greenFiles = [{ id: 'data', url: './geojson/data.geojson' }];
             greenFiles.forEach(file => {
                 fetch(file.url).then(res => res.json()).then(geojson => {
-                    map.addSource(file.id, { type: 'geojson', data: geojson, cluster: true, clusterRadius: 50, clusterMinPoints: 15 });
-                    // 緑の個別点は赤青黄の下
-                    map.addLayer({ id: `${file.id}-points`, type: 'circle', source: file.id, filter: ['!', ['has', 'point_count']], paint: { 'circle-color': '#90ee90', 'circle-radius': 4, 'circle-opacity': 0.3, 'circle-stroke-width': 0 } }, baseLayerId);
-                    // 緑のクラスターは最前面
-                    map.addLayer({ id: `${file.id}-clusters`, type: 'circle', source: file.id, filter: ['has', 'point_count'], paint: { 'circle-color': '#041533', 'circle-opacity': 0.6, 'circle-radius': ['step', ['get', 'point_count'], 15, 100, 25, 500, 35] } });
-                    map.addLayer({ id: `${file.id}-cluster-count`, type: 'symbol', source: file.id, filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 }, paint: { 'text-color': '#fff' } });
-                }).catch(e => console.error(e));
+                    map.addSource(file.id, {
+                        type: 'geojson',
+                        data: geojson,
+                        cluster: true,
+                        clusterRadius: 50,
+                        clusterMinPoints: 15
+                    });
+                    map.addLayer({
+                        id: `${file.id}-points`,
+                        type: 'circle',
+                        source: file.id,
+                        filter: ['!', ['has', 'point_count']],
+                        paint: {
+                            'circle-color': '#90ee90',
+                            'circle-radius': 4,
+                            'circle-opacity': 0.3,
+                            'circle-stroke-width': 0
+                        }
+                    }, anchorLayer);
+                    map.addLayer({
+                        id: `${file.id}-clusters`,
+                        type: 'circle',
+                        source: file.id,
+                        filter: ['has', 'point_count'],
+                        paint: {
+                            'circle-color': '#041533',
+                            'circle-opacity': 0.6,
+                            'circle-radius': ['step', ['get', 'point_count'], 15, 100, 25, 500, 35]
+                        }
+                    });
+                    map.addLayer({
+                        id: `${file.id}-cluster-count`,
+                        type: 'symbol',
+                        source: file.id,
+                        filter: ['has', 'point_count'],
+                        layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 },
+                        paint: { 'text-color': '#fff' }
+                    });
+                }).catch(e => console.error('緑データ読み込みエラー:', e));
             });
         });
 
-        // =========================================
-        // ポップアップ表示ロジック
-        // =========================================
         function getAgeHighlight(ageStr) {
             if (!ageStr) return null;
-            // 全角数字を半角に変換して数値化
-            const norm = ageStr.toString().trim().replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-            const match = norm.match(/(\d+)/);
+            const match = ageStr.toString().match(/(\d+)/);
             if (!match) return null;
-            const num = parseInt(match[0], 10);
-
-            if (isNaN(num)) return null;
-            if (num >= 0 && num <= 5) return { bg: '#ffebea', col: '#d32f2f' };   // 赤系
-            if (num >= 6 && num <= 12) return { bg: '#e3f2fd', col: '#1976d2' };  // 青系
-            if (num >= 13 && num <= 18) return { bg: '#fff8e1', col: '#f57f17' }; // 黄系
+            const age = parseInt(match[0], 10);
+            if (age >= 0 && age <= 5) return { bg: '#ffe0e0', color: '#c0392b' };
+            if (age >= 6 && age <= 12) return { bg: '#e0f3ff', color: '#2980b9' };
+            if (age >= 13 && age <= 18) return { bg: '#fffbd0', color: '#f39c12' };
             return null;
         }
 
         function showPopup(e) {
             const p = e.features[0].properties;
-            const coords = e.features[0].geometry.coordinates.slice();
             
-            // 校区・自治体判定
-            const fuk = map.queryRenderedFeatures(e.point, { layers: ['districts-fill'] });
-            const oth = map.queryRenderedFeatures(e.point, { layers: ['other-districts-fill'] });
-            let districtText = '校区のデータなし';
-            if (fuk.length > 0 && fuk[0].properties['校区名']) {
-                districtText = `福岡市立 ${fuk[0].properties['校区名']}`;
-            } else if (oth.length > 0) {
-                const city = oth[0].properties['A27_002'] || '';
-                const dist = oth[0].properties['A27_004'] || '';
-                districtText = dist ? `${city} ${dist}` : (city ? `${city} (校区情報なし)` : '校区のデータなし');
-            }
-
-            // 当事者情報フォーマット（年齢強調・スラッシュ区切り）
-            const fmt = (type, age, inj) => {
-                const hl = getAgeHighlight(age);
-                let dispAge = age || '-';
-                // 数字が含まれていて「歳」がなければ付ける
-                if (dispAge !== '-' && !dispAge.includes('歳') && /\d|[０-９]/.test(dispAge)) {
-                    dispAge += '歳';
+            // 3県すべての校区レイヤーをクエリ
+            const queryLayers = [
+                'fukuoka-city-fill',
+                'fukuoka-pref-fill',
+                'saga-fill',
+                'nagasaki-fill'
+            ];
+            
+            const features = map.queryRenderedFeatures(e.point, { layers: queryLayers });
+            let district = '不明';
+            
+            if (features.length > 0) {
+                const props = features[0].properties;
+                const layerId = features[0].layer.id;
+                
+                // 福岡市の独自形式
+                if (props['校区名']) {
+                    district = `${props['校区名']}校区 (福岡市)`;
                 }
-                const ageHtml = hl ? `<span class="age-highlight" style="background-color:${hl.bg}; color:${hl.col};">${dispAge}</span>` : dispAge;
-                // [年齢] [種別] / [損傷程度] の順
-                return `${ageHtml} ${type || '-'} / ${inj || '-'}`;
-            };
-
-            // 日時のフォーマット（曜日挿入・半角カッコ）
-            let dateTimeStr = p["発生年月日時"] || '日時不明';
-            const dow = p["発生曜日"];
-            if (dateTimeStr.includes('日') && dow) {
-                dateTimeStr = dateTimeStr.replace('日', `日(${dow}曜)`);
-            } else if (dow) {
-                dateTimeStr += ` (${dow}曜)`;
+                // 国土数値情報形式（福岡県・佐賀県・長崎県）
+                else if (props['A27_004']) {
+                    const schoolName = props['A27_004'];
+                    const setter = props['A27_002'] || '';
+                    
+                    // レイヤーIDから県を判定
+                    let prefecture = '';
+                    if (layerId.includes('fukuoka')) prefecture = '福岡県';
+                    else if (layerId.includes('saga')) prefecture = '佐賀県';
+                    else if (layerId.includes('nagasaki')) prefecture = '長崎県';
+                    
+                    // 「○○市立」などから市町村名を抽出
+                    const cityMatch = setter.match(/^(.+?)(市立|町立|村立)/);
+                    const cityName = cityMatch ? cityMatch[1] : setter;
+                    
+                    district = cityName ? 
+                        `${schoolName} (${cityName}・${prefecture})` : 
+                        `${schoolName} (${prefecture})`;
+                }
             }
 
-            const html = `<div class="popup-title">${dateTimeStr}</div>
-                <table>
-                    <tr><td>校区</td><td><strong>${districtText}</strong></td></tr>
-                    <tr><td>状況</td><td>${p["天候"] || '-'} / ${p["昼夜"] || '-'} / ${p["道路形状"] || '-'}</td></tr>
-                    <tr><td>当事者A</td><td>${fmt(p["当事者種別（当事者A）"], p["年齢（当事者A）"], p["人身損傷程度（当事者A）"])}</td></tr>
-                    <tr><td>当事者B</td><td>${fmt(p["当事者種別（当事者B）"], p["年齢（当事者B）"], p["人身損傷程度（当事者B）"])}</td></tr>
-                </table>`;
-            popup.setLngLat(coords).setHTML(html).addTo(map);
+            const formatParty = (type, age, injury) => {
+                const hl = getAgeHighlight(age);
+                const ageHtml = hl ? `<span class="age-highlight" style="background:${hl.bg}; color:${hl.color};">${age}</span>` : (age || '-');
+                return `<div>${type || '-'} (${ageHtml})</div><span class="sub-info">${injury || '-'}</span>`;
+            };
+            
+            const html = `<div class="popup-title">${p["発生年月日時"] || '日時不明'}</div>
+                <table><tr><td>場所</td><td><strong>${district}</strong></td></tr>
+                <tr><td>状況</td><td>${p["天候"] || '-'} / ${p["昼夜"] || '-'}</td></tr>
+                <tr><td>当事者A</td><td>${formatParty(p["当事者種別（当事者A）"], p["年齢（当事者A）"], p["人身損傷程度（当事者A）"])}</td></tr>
+                <tr><td>当事者B</td><td>${formatParty(p["当事者種別（当事者B）"], p["年齢（当事者B）"], p["人身損傷程度（当事者B）"])}</td></tr></table>`;
+            popup.setLngLat(e.features[0].geometry.coordinates.slice()).setHTML(html).addTo(map);
         }
 
         map.on('idle', () => {
             ['13-18-2024', '6-12-2024', '1-5-2024'].forEach(id => {
                 if (map.getLayer(id)) {
-                    map.off('click', id, showPopup);
                     map.on('click', id, showPopup);
                     map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
                     map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
                 }
             });
         });
+
+        // 検索ボックスの重複防止と初期化
+        let searchInitialized = false;
+        function initSearch() {
+            if (searchInitialized) return;
+            if (window.MapboxSearchBox && map) {
+                const search = new MapboxSearchBox();
+                search.accessToken = mapboxgl.accessToken;
+                search.options = { types: 'address,poi', language: 'ja', country: 'JP', proximity: [130.2, 33.0] };
+                search.marker = true;
+                search.mapboxgl = mapboxgl;
+                map.addControl(search, 'top-left');
+                searchInitialized = true;
+
+                setTimeout(() => {
+                    const input = document.querySelector('.mapboxgl-ctrl-search-box input');
+                    if (input) input.placeholder = '住所や場所を検索';
+                }, 1000);
+            }
+        }
+        if (window.MapboxSearchBox) { initSearch(); }
+        else { document.getElementById('search-js').addEventListener('load', initSearch); }
+        map.once('load', initSearch);
+
     </script>
 </body>
 </html>
